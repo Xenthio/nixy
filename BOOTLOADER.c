@@ -1,44 +1,51 @@
-[BITS 16]      ; 16 bit code generation
-[ORG 0x7C00]   ; Origin location
+;**************************************************
+; Hello World OS Boot loader
+; Designed by Arnav
+; http://pendorasoft.byethost15.com/
+;**************************************************
 
-; Main program
-main:		; Label for the start of the main program
+[BITS 16]
+[ORG 0x0000]
 
- mov ax,0x0000	; Setup the Data Segment register
-		; Location of data is DS:Offset
- mov ds,ax	; This can not be loaded directly it has to be in two steps.
-		; 'mov ds, 0x0000' will NOT work due to limitations on the CPU
+; code located at 0000:7C00, adjust segment registers
+      cli
+      mov     ax, 0x07C0
+      mov     ds, ax
+      mov     es, ax
+      mov     fs, ax
+      mov     gs, ax
 
- mov si, HelloWorld	; Load the string into position for the procedure.
- call PutStr	; Call/start the procedure
+; create stack
+      mov     ax, 0x0000
+      mov     ss, ax
+      mov     sp, 0xFFFF
+      sti
 
-jmp $		; Never ending loop
+; post message
+      mov     si,msgHello
+      call    DisplayMessage
+      mov     si, msgEnd
+    call    DisplayMessage
+     hlt
 
-; Procedures
-PutStr:		; Procedure label/start
- ; Set up the registers for the interrupt call
- mov ah,0x0E	; The function to display a chacter (teletype)
- mov bh,0x00	; Page number
- mov bl,0x07	; Normal text attribute
 
-.nextchar	; Internal label (needed to loop round for the next character)
- lodsb		; I think of this as LOaD String Block
-		; (Not sure if thats the real meaning though)
-		; Loads [SI] into AL and increases SI by one
- ; Check for end of string '0'
- or al,al	; Sets the zero flag if al = 0
-		; (OR outputs 0's where there is a zero bit in the register)
- jz .return	; If the zero flag has been set go to the end of the procedure.
-		; Zero flag gets set when an instruction returns 0 as the answer.
- int 0x10	; Run the BIOS video interrupt
- jmp .nextchar	; Loop back round tothe top
-.return		; Label at the end to jump to when complete
- ret		; Return to main program
+; Display Message
+ DisplayMessage:
+      lodsb                                       ; load next character
+      or      al, al                              ; test for NUL character
+      jz      .DONE
+      mov     ah, 0x0E                            ; BIOS teletype
+      mov     bh, 0x00                            ; display page 0
+      mov     bl, 0x07                            ; text attribute
+      int     0x10                                ; invoke BIOS
+      jmp     DisplayMessage
+  .DONE:
+      ret
 
-; Data
+; data section
+msgHello  db 0x0D, 0x0A, "Hello World", 0x0D, 0x0A, 0x00
+msgEnd  db 0x0D, 0x0A, "That's all folks!!!", 0x0D, 0x0A, 0x00
 
-HelloWorld db 'Hello World',13,10,0
-
-; End Matter
-times 510-($-$$) db 0	; Fill the rest with zeros
-dw 0xAA55		; Boot loader signature
+;ASM Signature
+      TIMES 510-($-$$) DB 0
+      DW 0xAA55
